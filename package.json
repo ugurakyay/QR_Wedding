@@ -1,0 +1,19 @@
+{
+  "name": "wedding-gallery",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-stack wedding photo and video sharing application",
+  "scripts": {
+    "dev": "npm run dev --workspace=server",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "install:all": "npm install && npm install --workspace=server && npm install --workspace=client"
+  },
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
