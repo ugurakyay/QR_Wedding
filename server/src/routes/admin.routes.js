@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { config } from '../config/env.js';
 import { generateToken, requireAuth } from '../middleware/auth.js';
-import { deleteObject, createPresignedDownloadUrl } from '../services/s3.service.js';
+import { deleteObject, createPresignedDownloadUrl, parseUploaderName } from '../services/s3.service.js';
 
 const router = Router();
 
@@ -30,7 +30,9 @@ router.delete('/media/:key', requireAuth, async (req, res, next) => {
 router.get('/media/:key/download', requireAuth, async (req, res, next) => {
   try {
     const key = decodeURIComponent(req.params.key);
-    const url = await createPresignedDownloadUrl(key);
+    const ext = key.includes('.') ? key.slice(key.lastIndexOf('.') + 1) : '';
+    const filename = `${parseUploaderName(key).replace(/\s+/g, '_')}${ext ? `.${ext}` : ''}`;
+    const url = await createPresignedDownloadUrl(key, { downloadFilename: filename });
     res.json({ url });
   } catch (err) {
     next(err);

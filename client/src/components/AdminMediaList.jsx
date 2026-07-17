@@ -1,11 +1,51 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { deleteMedia, getFreshDownloadUrl } from '../api/admin.js';
-import { formatDate, formatFileSize, getKeyExtension } from '../utils/format.js';
+import { formatDate, formatFileSize } from '../utils/format.js';
+
+function triggerDownload(url) {
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
   const [deleting, setDeleting] = useState(null);
   const [downloading, setDownloading] = useState(null);
+  const [selected, setSelected] = useState(new Set());
+  const [bulkDownloading, setBulkDownloading] = useState(null);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const validKeys = new Set(media.map((item) => item.key));
+    setSelected((prev) => {
+      const next = new Set([...prev].filter((key) => validKeys.has(key)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [media]);
+
+  const allSelected = media.length > 0 && selected.size === media.length;
+
+  const toggleOne = (key) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelected(allSelected ? new Set() : new Set(media.map((item) => item.key)));
+  };
 
   const handleDelete = async (item) => {
     if (!window.confirm(`"${item.uploaderName}" tarafından yüklenen dosyayı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return;
@@ -16,6 +56,11 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
     try {
       await deleteMedia(item.key);
       onMediaChange((prev) => prev.filter((m) => m.key !== item.key));
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(item.key);
+        return next;
+      });
     } catch (err) {
       setError(err.response?.data?.error || 'Dosya silinemedi');
     } finally {
@@ -29,20 +74,32 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
 
     try {
       const url = await getFreshDownloadUrl(item.key);
-
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${item.uploaderName.replace(/\s+/g, '_')}.${getKeyExtension(item.key)}`;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      triggerDownload(url);
     } catch (err) {
       setError(err.response?.data?.error || 'Dosya indirilemedi');
     } finally {
       setDownloading(null);
     }
+  };
+
+  const handleDownloadSelected = async () => {
+    const items = media.filter((item) => selected.has(item.key));
+    if (items.length === 0) return;
+
+    setError('');
+
+    for (let i = 0; i < items.length; i++) {
+      setBulkDownloading({ index: i, total: items.length });
+      try {
+        const url = await getFreshDownloadUrl(items[i].key);
+        triggerDownload(url);
+      } catch {
+        setError(`${items[i].uploaderName}: dosya indirilemedi`);
+      }
+      await sleep(400);
+    }
+
+    setBulkDownloading(null);
   };
 
   if (media.length === 0) {
@@ -61,11 +118,45 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
         </div>
       )}
 
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={toggleAll}
+          className="text-sm font-semibold text-wedding-gold hover:underline"
+        >
+          {allSelected ? 'Seçimi Kaldır' : 'Tümünü Seç'}
+        </button>
+
+        {selected.size > 0 && (
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-wedding-muted">{selected.size} seçili</span>
+            <button
+              type="button"
+              onClick={handleDownloadSelected}
+              disabled={bulkDownloading !== null}
+              className="btn-secondary px-4 py-2 text-xs"
+            >
+              {bulkDownloading
+                ? `İndiriliyor (${bulkDownloading.index + 1}/${bulkDownloading.total})…`
+                : 'Seçilenleri İndir'}
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="overflow-hidden rounded-2xl bg-white shadow-soft">
         <ul className="divide-y divide-wedding-blush">
           {media.map((item) => (
             <li key={item.key} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
               <div className="flex min-w-0 flex-1 items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={selected.has(item.key)}
+                  onChange={() => toggleOne(item.key)}
+                  aria-label={`${item.uploaderName} dosyasını seç`}
+                  className="h-4 w-4 shrink-0 accent-wedding-rose"
+                />
+
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-wedding-blush">
                   {item.type === 'video' ? (
                     <svg className="h-6 w-6 text-wedding-rose" fill="currentColor" viewBox="0 0 24 24">

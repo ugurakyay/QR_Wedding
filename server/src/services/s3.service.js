@@ -94,12 +94,29 @@ export async function createPresignedUploadUrl({ uploaderName, mimeType, fileSiz
 }
 
 /**
- * Generate a presigned GET URL for viewing a private object.
+ * Build a Content-Disposition value that survives non-ASCII names (Turkish
+ * letters etc). A plain `filename="..."` with raw UTF-8 bytes gets rejected
+ * by S3 with 400 Bad Request, so this pairs an ASCII fallback with the
+ * RFC 5987 `filename*=UTF-8''...` form browsers actually use to display it.
  */
-export async function createPresignedDownloadUrl(key, expiresIn = 3600) {
+function buildContentDisposition(filename) {
+  const asciiFallback = filename.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, "'");
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
+/**
+ * Generate a presigned GET URL for viewing or downloading a private object.
+ * Pass downloadFilename to force a "Save As" download via the S3 response's
+ * Content-Disposition header — the HTML `download` attribute alone doesn't
+ * force a save for cross-origin URLs like these, browsers just navigate.
+ */
+export async function createPresignedDownloadUrl(key, { expiresIn = 3600, downloadFilename } = {}) {
   const command = new GetObjectCommand({
     Bucket: config.aws.bucket,
     Key: key,
+    ...(downloadFilename
+      ? { ResponseContentDisposition: buildContentDisposition(downloadFilename) }
+      : {}),
   });
 
   return getSignedUrl(s3Client, command, { expiresIn });

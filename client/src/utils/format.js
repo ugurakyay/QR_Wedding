@@ -15,11 +15,6 @@ export function formatDate(dateString) {
   });
 }
 
-export function getKeyExtension(key) {
-  const parts = key.split('.');
-  return parts.length > 1 ? parts[parts.length - 1] : '';
-}
-
 export function isAllowedFile(file, allowedMimeTypes) {
   return allowedMimeTypes.includes(file.type);
 }
