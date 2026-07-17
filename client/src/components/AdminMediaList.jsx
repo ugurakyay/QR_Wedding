@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { deleteMedia, getFreshDownloadUrl, downloadMediaZip } from '../api/admin.js';
+import { deleteMedia, getFreshDownloadUrl } from '../api/admin.js';
 import { formatDate, formatFileSize } from '../utils/format.js';
+import { createZipBlob, buildZipEntryNames } from '../utils/zip.js';
 
 function triggerDownload(url, filename) {
   const link = document.createElement('a');
@@ -28,7 +29,7 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
   const [deleting, setDeleting] = useState(null);
   const [downloading, setDownloading] = useState(null);
   const [selected, setSelected] = useState(new Set());
-  const [bulkDownloading, setBulkDownloading] = useState(false);
+  const [bulkDownloading, setBulkDownloading] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -96,18 +97,22 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
     const items = media.filter((item) => selected.has(item.key));
     if (items.length === 0) return;
 
-    setBulkDownloading(true);
+    setBulkDownloading({ index: 0, total: items.length });
     setError('');
 
     try {
-      const blob = await downloadMediaZip(items.map((item) => item.key));
+      const names = buildZipEntryNames(items);
+      const urls = await Promise.all(items.map((item) => getFreshDownloadUrl(item.key)));
+      const entries = items.map((item, i) => ({ url: urls[i], name: names[i] }));
+
+      const blob = await createZipBlob(entries, (index, total) => setBulkDownloading({ index, total }));
       const url = URL.createObjectURL(blob);
       triggerDownload(url, `secilen-dosyalar-${items.length}.zip`);
       URL.revokeObjectURL(url);
     } catch (err) {
       setError(getErrorMessage(err, 'Dosyalar zip olarak indirilemedi'));
     } finally {
-      setBulkDownloading(false);
+      setBulkDownloading(null);
     }
   };
 
@@ -142,10 +147,12 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
             <button
               type="button"
               onClick={handleDownloadSelected}
-              disabled={bulkDownloading}
+              disabled={bulkDownloading !== null}
               className="btn-secondary px-4 py-2 text-xs"
             >
-              {bulkDownloading ? 'Zip hazırlanıyor…' : 'Seçilenleri İndir (ZIP)'}
+              {bulkDownloading
+                ? `Hazırlanıyor (${bulkDownloading.index + 1}/${bulkDownloading.total})…`
+                : 'Seçilenleri İndir (ZIP)'}
             </button>
           </div>
         )}
