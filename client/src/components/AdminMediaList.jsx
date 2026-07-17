@@ -14,6 +14,17 @@ function triggerDownload(url) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function isSessionExpired(err) {
+  return err.response?.status === 401;
+}
+
+function getErrorMessage(err, fallback) {
+  if (isSessionExpired(err)) {
+    return 'Oturumunuz sona ermiş. Çıkış yapıp tekrar giriş yapın.';
+  }
+  return err.response?.data?.error || fallback;
+}
+
 export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
   const [deleting, setDeleting] = useState(null);
   const [downloading, setDownloading] = useState(null);
@@ -62,7 +73,7 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
         return next;
       });
     } catch (err) {
-      setError(err.response?.data?.error || 'Dosya silinemedi');
+      setError(getErrorMessage(err, 'Dosya silinemedi'));
     } finally {
       setDeleting(null);
     }
@@ -76,7 +87,7 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
       const url = await getFreshDownloadUrl(item.key);
       triggerDownload(url);
     } catch (err) {
-      setError(err.response?.data?.error || 'Dosya indirilemedi');
+      setError(getErrorMessage(err, 'Dosya indirilemedi'));
     } finally {
       setDownloading(null);
     }
@@ -93,8 +104,9 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
       try {
         const url = await getFreshDownloadUrl(items[i].key);
         triggerDownload(url);
-      } catch {
-        setError(`${items[i].uploaderName}: dosya indirilemedi`);
+      } catch (err) {
+        setError(getErrorMessage(err, `${items[i].uploaderName}: dosya indirilemedi`));
+        if (isSessionExpired(err)) break;
       }
       await sleep(400);
     }
