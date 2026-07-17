@@ -6,18 +6,18 @@ export async function getUploadConfig() {
   return data;
 }
 
-export async function getPresignedUrl({ filename, mimeType, fileSize }) {
+export async function getPresignedUrl({ uploaderName, mimeType, fileSize }) {
   const { data } = await api.post('/upload/presign', {
-    filename,
+    uploaderName,
     mimeType,
     fileSize,
   });
   return data;
 }
 
-export async function uploadFile(file, onProgress) {
+export async function uploadFile(file, uploaderName, onProgress) {
   const presigned = await getPresignedUrl({
-    filename: file.name,
+    uploaderName,
     mimeType: file.type,
     fileSize: file.size,
   });

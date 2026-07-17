@@ -1,22 +1,21 @@
 import { useState } from 'react';
 import { deleteMedia, getFreshDownloadUrl } from '../api/admin.js';
-import { formatDate, formatFileSize, getFilenameFromKey } from '../utils/format.js';
+import { formatDate, formatFileSize, getKeyExtension } from '../utils/format.js';
 
 export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
   const [deleting, setDeleting] = useState(null);
   const [downloading, setDownloading] = useState(null);
   const [error, setError] = useState('');
 
-  const handleDelete = async (key) => {
-    const filename = getFilenameFromKey(key);
-    if (!window.confirm(`"${filename}" dosyasını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return;
+  const handleDelete = async (item) => {
+    if (!window.confirm(`"${item.uploaderName}" tarafından yüklenen dosyayı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return;
 
-    setDeleting(key);
+    setDeleting(item.key);
     setError('');
 
     try {
-      await deleteMedia(key);
-      onMediaChange((prev) => prev.filter((item) => item.key !== key));
+      await deleteMedia(item.key);
+      onMediaChange((prev) => prev.filter((m) => m.key !== item.key));
     } catch (err) {
       setError(err.response?.data?.error || 'Dosya silinemedi');
     } finally {
@@ -29,16 +28,11 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
     setError('');
 
     try {
-      let url = item.viewUrl;
-      try {
-        url = await getFreshDownloadUrl(item.key);
-      } catch {
-        // mevcut viewUrl ile devam et
-      }
+      const url = await getFreshDownloadUrl(item.key);
 
       const link = document.createElement('a');
       link.href = url;
-      link.download = getFilenameFromKey(item.key);
+      link.download = `${item.uploaderName.replace(/\s+/g, '_')}.${getKeyExtension(item.key)}`;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       document.body.appendChild(link);
@@ -72,26 +66,21 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
           {media.map((item) => (
             <li key={item.key} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-wedding-blush">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-wedding-blush">
                   {item.type === 'video' ? (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <svg className="h-6 w-6 text-wedding-rose" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </div>
+                    <svg className="h-6 w-6 text-wedding-rose" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
                   ) : (
-                    <img
-                      src={item.viewUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
+                    <svg className="h-6 w-6 text-wedding-rose" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
                   )}
                 </div>
 
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-wedding-charcoal">
-                    {getFilenameFromKey(item.key)}
+                    {item.uploaderName}
                   </p>
                   <p className="text-xs text-wedding-muted">
                     {formatFileSize(item.size)} · {formatDate(item.lastModified)}
@@ -110,7 +99,7 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleDelete(item.key)}
+                  onClick={() => handleDelete(item)}
                   disabled={deleting === item.key}
                   className="rounded-full border border-red-200 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-red-400 transition hover:bg-red-50 disabled:opacity-50"
                 >

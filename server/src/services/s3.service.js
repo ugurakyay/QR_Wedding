@@ -15,22 +15,51 @@ const s3Client = new S3Client({
 const UPLOAD_PREFIX = 'uploads/';
 
 /**
- * Build a unique S3 object key for an upload.
+ * Turn a free-typed name into a key-safe, underscore-separated slug.
+ * Keeps letters from any alphabet (Turkish included) so the name reads
+ * back exactly as typed — S3 keys are UTF-8, so there's no need to
+ * transliterate down to ASCII.
  */
-export function buildObjectKey(originalFilename, mimeType) {
+function slugifyName(name) {
+  const slug = name
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^\p{L}\p{N}_]/gu, '')
+    .slice(0, 40);
+  return slug || 'Misafir';
+}
+
+/**
+ * Build a unique S3 object key from the uploader's name and upload time.
+ * Format: uploads/{epochMs}-{nameSlug}-{shortId}.{ext}
+ * The epoch + random suffix rule out collisions even when the same
+ * guest uploads several files within the same second.
+ */
+export function buildObjectKey({ uploaderName, mimeType }) {
   const ext = getExtensionForMimeType(mimeType);
-  const safeName = originalFilename
-    .replace(/[^a-zA-Z0-9._-]/g, '_')
-    .slice(0, 100);
-  const uniqueId = uuidv4();
+  const nameSlug = slugifyName(uploaderName);
+  const shortId = uuidv4().replace(/-/g, '').slice(0, 6);
   const suffix = ext ? `.${ext}` : '';
-  return `${UPLOAD_PREFIX}${uniqueId}-${safeName}${suffix}`;
+  return `${UPLOAD_PREFIX}${Date.now()}-${nameSlug}-${shortId}${suffix}`;
+}
+
+/**
+ * Recover the uploader's display name from an object key built by buildObjectKey.
+ * Falls back to "Misafir" for keys that predate this naming scheme.
+ */
+export function parseUploaderName(key) {
+  const base = key.slice(UPLOAD_PREFIX.length);
+  const dot = base.lastIndexOf('.');
+  const withoutExt = dot === -1 ? base : base.slice(0, dot);
+  const parts = withoutExt.split('-');
+  const nameSlug = parts.length === 3 ? parts[1] : null;
+  return nameSlug ? nameSlug.replace(/_/g, ' ') : 'Misafir';
 }
 
 /**
  * Generate a presigned PUT URL for direct client-to-S3 upload.
  */
-export async function createPresignedUploadUrl({ filename, mimeType, fileSize }) {
+export async function createPresignedUploadUrl({ uploaderName, mimeType, fileSize }) {
   if (!isAllowedMimeType(mimeType)) {
     throw Object.assign(new Error(`File type not allowed: ${mimeType}`), { status: 400 });
   }
@@ -42,7 +71,7 @@ export async function createPresignedUploadUrl({ filename, mimeType, fileSize })
     );
   }
 
-  const key = buildObjectKey(filename, mimeType);
+  const key = buildObjectKey({ uploaderName, mimeType });
 
   const command = new PutObjectCommand({
     Bucket: config.aws.bucket,

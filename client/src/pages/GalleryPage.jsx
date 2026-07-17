@@ -1,11 +1,27 @@
 import { useState } from 'react';
-import MasonryGrid from '../components/MasonryGrid.jsx';
+import MediaLog from '../components/MediaLog.jsx';
 import MediaModal from '../components/MediaModal.jsx';
 import { useMedia } from '../hooks/useMedia.js';
+import { getMediaViewUrl } from '../api/media.js';
 
 export default function GalleryPage() {
   const { media, loading, error, loadMedia } = useMedia();
   const [selected, setSelected] = useState(null);
+  const [loadingKey, setLoadingKey] = useState(null);
+  const [viewError, setViewError] = useState('');
+
+  const handleItemClick = async (item) => {
+    setLoadingKey(item.key);
+    setViewError('');
+    try {
+      const viewUrl = await getMediaViewUrl(item.key);
+      setSelected({ ...item, viewUrl });
+    } catch {
+      setViewError('Dosya açılamadı, tekrar deneyin.');
+    } finally {
+      setLoadingKey(null);
+    }
+  };
 
   return (
     <div className="page-container">
@@ -28,30 +44,29 @@ export default function GalleryPage() {
         </p>
       </header>
 
-      {error && (
+      {(error || viewError) && (
         <div className="mb-6 rounded-xl bg-red-50 px-4 py-3 text-center text-sm text-red-500">
-          {error}
-          <button
-            type="button"
-            onClick={loadMedia}
-            className="ml-2 font-semibold underline"
-          >
-            Tekrar dene
-          </button>
+          {error || viewError}
+          {error && (
+            <button
+              type="button"
+              onClick={loadMedia}
+              className="ml-2 font-semibold underline"
+            >
+              Tekrar dene
+            </button>
+          )}
         </div>
       )}
 
       {loading ? (
-        <div className="columns-2 gap-3 sm:columns-3 sm:gap-4">
+        <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="mb-3 h-48 animate-pulse break-inside-avoid rounded-xl bg-wedding-blush sm:mb-4"
-            />
+            <div key={i} className="h-16 animate-pulse rounded-2xl bg-wedding-blush" />
           ))}
         </div>
       ) : (
-        <MasonryGrid media={media} onItemClick={setSelected} />
+        <MediaLog media={media} onItemClick={handleItemClick} loadingKey={loadingKey} />
       )}
 
       {selected && (

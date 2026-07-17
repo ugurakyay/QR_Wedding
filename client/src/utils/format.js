@@ -15,10 +15,9 @@ export function formatDate(dateString) {
   });
 }
 
-export function getFilenameFromKey(key) {
-  const parts = key.split('/');
-  const filename = parts[parts.length - 1] || key;
-  return filename.replace(/^[a-f0-9-]{36}-/, '');
+export function getKeyExtension(key) {
+  const parts = key.split('.');
+  return parts.length > 1 ? parts[parts.length - 1] : '';
 }
 
 export function isAllowedFile(file, allowedMimeTypes) {

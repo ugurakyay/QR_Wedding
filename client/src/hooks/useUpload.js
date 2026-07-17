@@ -2,8 +2,13 @@ import { useState, useCallback } from 'react';
 import { getUploadConfig, uploadFile } from '../api/upload.js';
 import { validateFiles } from '../utils/format.js';
 
+const NAME_STORAGE_KEY = 'uploader_name';
+
 export function useUpload() {
   const [config, setConfig] = useState(null);
+  const [uploaderName, setUploaderNameState] = useState(
+    () => sessionStorage.getItem(NAME_STORAGE_KEY) || '',
+  );
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -12,6 +17,11 @@ export function useUpload() {
   const [errors, setErrors] = useState([]);
   const [completed, setCompleted] = useState(false);
   const [uploadedCount, setUploadedCount] = useState(0);
+
+  const setUploaderName = useCallback((name) => {
+    setUploaderNameState(name);
+    sessionStorage.setItem(NAME_STORAGE_KEY, name);
+  }, []);
 
   const loadConfig = useCallback(async () => {
     const data = await getUploadConfig();
@@ -51,7 +61,7 @@ export function useUpload() {
   }, []);
 
   const startUpload = useCallback(async () => {
-    if (files.length === 0) return;
+    if (files.length === 0 || !uploaderName.trim()) return;
 
     setUploading(true);
     setProgress(0);
@@ -68,7 +78,7 @@ export function useUpload() {
       setCurrentIndex(i);
 
       try {
-        await uploadFile(file, (fileProgress) => {
+        await uploadFile(file, uploaderName.trim(), (fileProgress) => {
           const overall = ((i + fileProgress) / total) * 100;
           setProgress(Math.round(overall));
         });
@@ -93,10 +103,12 @@ export function useUpload() {
       setCompleted(true);
       setFiles([]);
     }
-  }, [files]);
+  }, [files, uploaderName]);
 
   return {
     config,
+    uploaderName,
+    setUploaderName,
     files,
     uploading,
     progress,

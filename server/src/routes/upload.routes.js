@@ -3,24 +3,31 @@ import {
   createPresignedUploadUrl,
   createPresignedDownloadUrl,
   listMediaObjects,
+  parseUploaderName,
 } from '../services/s3.service.js';
 import { config } from '../config/env.js';
 import { isImage, isVideo } from '../utils/mime.js';
 
 const router = Router();
 
+const UPLOAD_PREFIX = 'uploads/';
+
 /**
  * POST /api/upload/presign
- * Body: { filename, mimeType, fileSize }
+ * Body: { uploaderName, mimeType, fileSize }
  * Returns a presigned S3 PUT URL for direct upload.
  */
 router.post('/presign', async (req, res, next) => {
   try {
-    const { filename, mimeType, fileSize } = req.body;
+    const { uploaderName, mimeType, fileSize } = req.body;
 
-    if (!filename || !mimeType || fileSize === undefined) {
+    if (!uploaderName || typeof uploaderName !== 'string' || !uploaderName.trim()) {
+      return res.status(400).json({ error: 'uploaderName is required' });
+    }
+
+    if (!mimeType || fileSize === undefined) {
       return res.status(400).json({
-        error: 'filename, mimeType, and fileSize are required',
+        error: 'mimeType and fileSize are required',
       });
     }
 
@@ -30,7 +37,7 @@ router.post('/presign', async (req, res, next) => {
     }
 
     const result = await createPresignedUploadUrl({
-      filename,
+      uploaderName: uploaderName.trim(),
       mimeType,
       fileSize: parsedSize,
     });
@@ -43,29 +50,47 @@ router.post('/presign', async (req, res, next) => {
 
 /**
  * GET /api/upload/media
- * List all uploaded media with presigned view URLs.
+ * List all uploaded media. No per-item signing here on purpose — with
+ * hundreds of guests uploading, signing a view URL for every item on
+ * every list request doesn't scale. A view URL is only generated when
+ * a specific item is opened, via GET /media/:key/view below.
  */
 router.get('/media', async (_req, res, next) => {
   try {
     const objects = await listMediaObjects();
 
-    const media = await Promise.all(
-      objects.map(async (obj) => {
-        const viewUrl = await createPresignedDownloadUrl(obj.key);
-        const mimeType = inferMimeTypeFromKey(obj.key);
+    const media = objects.map((obj) => {
+      const mimeType = inferMimeTypeFromKey(obj.key);
 
-        return {
-          key: obj.key,
-          size: obj.size,
-          lastModified: obj.lastModified,
-          viewUrl,
-          type: isVideo(mimeType) ? 'video' : isImage(mimeType) ? 'image' : 'unknown',
-          mimeType,
-        };
-      }),
-    );
+      return {
+        key: obj.key,
+        size: obj.size,
+        lastModified: obj.lastModified,
+        uploaderName: parseUploaderName(obj.key),
+        type: isVideo(mimeType) ? 'video' : isImage(mimeType) ? 'image' : 'unknown',
+        mimeType,
+      };
+    });
 
     res.json({ media, count: media.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/upload/media/:key/view
+ * Generate a presigned view URL for a single item, on demand.
+ */
+router.get('/media/:key/view', async (req, res, next) => {
+  try {
+    const key = decodeURIComponent(req.params.key);
+    if (!key.startsWith(UPLOAD_PREFIX)) {
+      return res.status(400).json({ error: 'Invalid key' });
+    }
+
+    const url = await createPresignedDownloadUrl(key);
+    res.json({ url });
   } catch (err) {
     next(err);
   }

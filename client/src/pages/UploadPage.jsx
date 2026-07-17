@@ -11,6 +11,8 @@ const weddingDate = import.meta.env.VITE_WEDDING_DATE || '';
 export default function UploadPage() {
   const {
     config,
+    uploaderName,
+    setUploaderName,
     files,
     uploading,
     progress,
@@ -59,7 +61,7 @@ export default function UploadPage() {
         )}
 
         <p className="mx-auto mt-6 max-w-sm text-sm leading-relaxed text-wedding-muted">
-          O özel günün en güzel anlarını bizimle paylaşın.
+          Bu özel günün en güzel anlarını bizimle paylaşın.
           Her fotoğraf ve video bu günü sonsuza dek yaşatacak.
         </p>
       </header>
@@ -74,6 +76,21 @@ export default function UploadPage() {
           />
         ) : (
           <>
+            <div>
+              <label htmlFor="uploader-name" className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-wedding-muted">
+                Ad Soyad
+              </label>
+              <input
+                id="uploader-name"
+                type="text"
+                value={uploaderName}
+                onChange={(e) => setUploaderName(e.target.value)}
+                placeholder="Adınızı ve soyadınızı yazın"
+                className="input-field"
+                autoComplete="name"
+              />
+            </div>
+
             <UploadZone
               onFilesSelected={addFiles}
               disabled={uploading}
@@ -93,13 +110,21 @@ export default function UploadPage() {
             )}
 
             {files.length > 0 && (
-              <button
-                type="button"
-                onClick={startUpload}
-                className="btn-primary w-full"
-              >
-                {files.length === 1 ? '1 Dosyayı Yükle' : `${files.length} Dosyayı Yükle`}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={startUpload}
+                  disabled={!uploaderName.trim()}
+                  className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {files.length === 1 ? '1 Dosyayı Yükle' : `${files.length} Dosyayı Yükle`}
+                </button>
+                {!uploaderName.trim() && (
+                  <p className="text-center text-xs text-wedding-muted">
+                    Yüklemeden önce ad soyad girmelisiniz.
+                  </p>
+                )}
+              </>
             )}
           </>
         )}

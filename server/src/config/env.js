@@ -33,7 +33,7 @@ export const config = {
   },
 
   upload: {
-    maxFileSize: parseInt(optionalEnv('MAX_FILE_SIZE', '104857600'), 10),
+    maxFileSize: parseInt(optionalEnv('MAX_FILE_SIZE', '524288000'), 10),
     presignedUrlExpiry: parseInt(optionalEnv('PRESIGNED_URL_EXPIRY', '300'), 10),
     allowedMimeTypes: [
       'image/jpeg',
