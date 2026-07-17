@@ -123,6 +123,19 @@ export async function createPresignedDownloadUrl(key, { expiresIn = 3600, downlo
 }
 
 /**
+ * Get a readable stream for an object's body, for zipping/proxying without
+ * buffering the whole file in memory.
+ */
+export async function getObjectStream(key) {
+  const command = new GetObjectCommand({
+    Bucket: config.aws.bucket,
+    Key: key,
+  });
+  const response = await s3Client.send(command);
+  return response.Body;
+}
+
+/**
  * List all uploaded media objects in the bucket.
  */
 export async function listMediaObjects() {

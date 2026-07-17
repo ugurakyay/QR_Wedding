@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react';
-import { deleteMedia, getFreshDownloadUrl } from '../api/admin.js';
+import { deleteMedia, getFreshDownloadUrl, downloadMediaZip } from '../api/admin.js';
 import { formatDate, formatFileSize } from '../utils/format.js';
 
-function triggerDownload(url) {
+function triggerDownload(url, filename) {
   const link = document.createElement('a');
   link.href = url;
+  if (filename) link.download = filename;
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 }
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function isSessionExpired(err) {
   return err.response?.status === 401;
@@ -29,7 +28,7 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
   const [deleting, setDeleting] = useState(null);
   const [downloading, setDownloading] = useState(null);
   const [selected, setSelected] = useState(new Set());
-  const [bulkDownloading, setBulkDownloading] = useState(null);
+  const [bulkDownloading, setBulkDownloading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -97,21 +96,19 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
     const items = media.filter((item) => selected.has(item.key));
     if (items.length === 0) return;
 
+    setBulkDownloading(true);
     setError('');
 
-    for (let i = 0; i < items.length; i++) {
-      setBulkDownloading({ index: i, total: items.length });
-      try {
-        const url = await getFreshDownloadUrl(items[i].key);
-        triggerDownload(url);
-      } catch (err) {
-        setError(getErrorMessage(err, `${items[i].uploaderName}: dosya indirilemedi`));
-        if (isSessionExpired(err)) break;
-      }
-      await sleep(400);
+    try {
+      const blob = await downloadMediaZip(items.map((item) => item.key));
+      const url = URL.createObjectURL(blob);
+      triggerDownload(url, `secilen-dosyalar-${items.length}.zip`);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Dosyalar zip olarak indirilemedi'));
+    } finally {
+      setBulkDownloading(false);
     }
-
-    setBulkDownloading(null);
   };
 
   if (media.length === 0) {
@@ -145,12 +142,10 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
             <button
               type="button"
               onClick={handleDownloadSelected}
-              disabled={bulkDownloading !== null}
+              disabled={bulkDownloading}
               className="btn-secondary px-4 py-2 text-xs"
             >
-              {bulkDownloading
-                ? `İndiriliyor (${bulkDownloading.index + 1}/${bulkDownloading.total})…`
-                : 'Seçilenleri İndir'}
+              {bulkDownloading ? 'Zip hazırlanıyor…' : 'Seçilenleri İndir (ZIP)'}
             </button>
           </div>
         )}

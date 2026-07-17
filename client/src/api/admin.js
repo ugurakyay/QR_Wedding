@@ -60,3 +60,8 @@ export async function getFreshDownloadUrl(key) {
   const { data } = await api.get(`/admin/media/${encodedKey}/download`);
   return data.url;
 }
+
+export async function downloadMediaZip(keys) {
+  const response = await api.post('/admin/media/zip', { keys }, { responseType: 'blob' });
+  return response.data;
+}
