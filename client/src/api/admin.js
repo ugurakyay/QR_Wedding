@@ -3,49 +3,32 @@ import api from './client.js';
 const ADMIN_SESSION_KEY = 'admin_authenticated';
 const ADMIN_TOKEN_KEY = 'admin_token';
 
+// localStorage (not sessionStorage) on purpose: the login should survive
+// closing the tab/browser. The token itself never expires server-side.
 export function isAdminAuthenticated() {
-  return sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+  return localStorage.getItem(ADMIN_SESSION_KEY) === 'true';
 }
 
 export function logoutAdmin() {
-  sessionStorage.removeItem(ADMIN_SESSION_KEY);
-  sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+  localStorage.removeItem(ADMIN_SESSION_KEY);
+  localStorage.removeItem(ADMIN_TOKEN_KEY);
 }
 
-/**
- * Attempt backend login first; fall back to client-side env password
- * until backend admin routes are implemented.
- */
 export async function loginAdmin(password) {
   try {
     const { data } = await api.post('/admin/login', { password });
-    sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    localStorage.setItem(ADMIN_SESSION_KEY, 'true');
     if (data.token) {
-      sessionStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+      localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
     }
     return { success: true };
   } catch (err) {
-    if (err.response?.status === 404 || err.response?.status === 501) {
-      const envPassword = import.meta.env.VITE_ADMIN_PASSWORD;
-      if (envPassword && password === envPassword) {
-        sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
-        return { success: true, clientSide: true };
-      }
-    }
-
     if (err.response?.status === 401) {
-      return { success: false, error: 'Incorrect password' };
+      return { success: false, error: 'Şifre yanlış' };
     }
-
-    const envPassword = import.meta.env.VITE_ADMIN_PASSWORD;
-    if (envPassword && password === envPassword) {
-      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
-      return { success: true, clientSide: true };
-    }
-
     return {
       success: false,
-      error: err.response?.data?.error || 'Incorrect password',
+      error: err.response?.data?.error || 'Giriş yapılamadı',
     };
   }
 }

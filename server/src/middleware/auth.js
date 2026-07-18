@@ -1,11 +1,17 @@
-import { randomBytes } from 'crypto';
+import { createHmac } from 'crypto';
+import { config } from '../config/env.js';
 
-const validTokens = new Set();
+// The token is derived from the admin password instead of being stored
+// in memory: it never expires and stays valid across restarts/redeploys,
+// so the admin doesn't have to log in again after every deploy.
+function deriveToken() {
+  return createHmac('sha256', 'wedding-admin-token')
+    .update(config.admin.password)
+    .digest('hex');
+}
 
 export function generateToken() {
-  const token = randomBytes(32).toString('hex');
-  validTokens.add(token);
-  return token;
+  return deriveToken();
 }
 
 export function requireAuth(req, res, next) {
@@ -14,7 +20,7 @@ export function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   const token = authHeader.slice(7);
-  if (!validTokens.has(token)) {
+  if (!config.admin.password || token !== deriveToken()) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   next();
