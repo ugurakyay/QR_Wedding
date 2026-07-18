@@ -3,12 +3,15 @@ import { deleteMedia, getFreshDownloadUrl } from '../api/admin.js';
 import { formatDate, formatFileSize } from '../utils/format.js';
 import { createZipBlob, buildZipEntryNames } from '../utils/zip.js';
 
+// No target="_blank" here on purpose: the URLs either carry a
+// Content-Disposition: attachment header (S3) or a download attribute
+// (blob zips), so a same-tab click saves the file without navigating.
+// A programmatic _blank click after an await gets eaten by popup
+// blockers in real Safari/Chrome, which made downloads silently no-op.
 function triggerDownload(url, filename) {
   const link = document.createElement('a');
   link.href = url;
   if (filename) link.download = filename;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
