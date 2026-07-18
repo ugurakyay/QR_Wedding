@@ -34,6 +34,6 @@ konsoldan el ile yapılmalı). Detaylı ölçümler Claude'un proje hafızasınd
 
 - **Railway otomatik deploy çalışmıyor** — her push sonrası şu komutla el ile tetikleniyor:
   `railway service source connect --repo ugurakyay/QR_Wedding --branch main --service 8ade0e4f-1c89-412f-a367-4d2e8e334e40`
-- **Her deploy admin oturumunu düşürür** (çıkış yapıp tekrar girmek yeterli; ekranda uyarı çıkıyor)
 - Bazı hata mesajları İngilizce (sunucu tarafı; normalde kullanıcı görmez)
-- `client/.env` içindeki `VITE_ADMIN_PASSWORD` artık kullanılmıyor, kaldırılabilir
+- `client/.env` ve Dockerfile'daki `VITE_ADMIN_PASSWORD` artık kodda kullanılmıyor, kaldırılabilir
+- Admin girişi kalıcı: şifre değişmediği sürece token süresiz geçerli, deploy'lar oturumu düşürmez
