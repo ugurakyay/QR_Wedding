@@ -47,18 +47,18 @@ export async function createZipBlob(entries, onProgress) {
   });
 }
 
+/**
+ * One folder per uploader inside the zip: Ayse_Yilmaz/Ayse_Yilmaz_1.jpg,
+ * Ayse_Yilmaz/Ayse_Yilmaz_2.mp4, ... The per-person counter keeps names
+ * unique and the files identifiable even when moved out of their folder.
+ */
 export function buildZipEntryNames(items) {
-  const usedNames = new Set();
+  const counters = new Map();
   return items.map((item) => {
     const ext = item.key.includes('.') ? item.key.slice(item.key.lastIndexOf('.') + 1) : '';
     const base = item.uploaderName.replace(/\s+/g, '_');
-    let name = `${base}${ext ? `.${ext}` : ''}`;
-    let suffix = 1;
-    while (usedNames.has(name)) {
-      suffix += 1;
-      name = `${base}_${suffix}${ext ? `.${ext}` : ''}`;
-    }
-    usedNames.add(name);
-    return name;
+    const n = (counters.get(base) ?? 0) + 1;
+    counters.set(base, n);
+    return `${base}/${base}_${n}${ext ? `.${ext}` : ''}`;
   });
 }

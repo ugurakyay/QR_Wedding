@@ -30,25 +30,32 @@ function slugifyName(name) {
 }
 
 /**
- * Build a unique S3 object key from the uploader's name and upload time.
- * Format: uploads/{epochMs}-{nameSlug}-{shortId}.{ext}
- * The epoch + random suffix rule out collisions even when the same
- * guest uploads several files within the same second.
+ * Build a unique S3 object key, grouped per uploader.
+ * Format: uploads/{nameSlug}/{epochMs}-{shortId}.{ext}
+ * The "folder" is just a key prefix (S3 has no real directories), so
+ * grouping costs nothing; the epoch + random suffix rule out collisions
+ * even when the same guest uploads several files within the same second.
  */
 export function buildObjectKey({ uploaderName, mimeType }) {
   const ext = getExtensionForMimeType(mimeType);
   const nameSlug = slugifyName(uploaderName);
   const shortId = uuidv4().replace(/-/g, '').slice(0, 6);
   const suffix = ext ? `.${ext}` : '';
-  return `${UPLOAD_PREFIX}${Date.now()}-${nameSlug}-${shortId}${suffix}`;
+  return `${UPLOAD_PREFIX}${nameSlug}/${Date.now()}-${shortId}${suffix}`;
 }
 
 /**
- * Recover the uploader's display name from an object key built by buildObjectKey.
- * Falls back to "Misafir" for keys that predate this naming scheme.
+ * Recover the uploader's display name from an object key.
+ * Understands the current uploads/{nameSlug}/... layout, the earlier
+ * flat uploads/{epochMs}-{nameSlug}-{shortId} layout, and falls back
+ * to "Misafir" for anything older.
  */
 export function parseUploaderName(key) {
   const base = key.slice(UPLOAD_PREFIX.length);
+  const slash = base.indexOf('/');
+  if (slash > 0) {
+    return base.slice(0, slash).replace(/_/g, ' ');
+  }
   const dot = base.lastIndexOf('.');
   const withoutExt = dot === -1 ? base : base.slice(0, dot);
   const parts = withoutExt.split('-');
@@ -134,7 +141,7 @@ export async function listMediaObjects() {
   const response = await s3Client.send(command);
 
   return (response.Contents ?? [])
-    .filter((item) => item.Key && item.Key !== UPLOAD_PREFIX)
+    .filter((item) => item.Key && !item.Key.endsWith('/'))
     .map((item) => ({
       key: item.Key,
       size: item.Size,
