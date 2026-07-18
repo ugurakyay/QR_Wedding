@@ -61,6 +61,31 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
     setSelected(allSelected ? new Set() : new Set(media.map((item) => item.key)));
   };
 
+  const toggleGroup = (group) => {
+    const keys = group.items.map((item) => item.key);
+    const allInGroup = keys.every((key) => selected.has(key));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      keys.forEach((key) => (allInGroup ? next.delete(key) : next.add(key)));
+      return next;
+    });
+  };
+
+  // Group rows per uploader, keeping the newest-first order of `media`
+  const groups = [];
+  {
+    const byName = new Map();
+    for (const item of media) {
+      let group = byName.get(item.uploaderName);
+      if (!group) {
+        group = { name: item.uploaderName, items: [] };
+        byName.set(item.uploaderName, group);
+        groups.push(group);
+      }
+      group.items.push(item);
+    }
+  }
+
   const handleDelete = async (item) => {
     if (!window.confirm(`"${item.uploaderName}" tarafından yüklenen dosyayı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return;
 
@@ -162,61 +187,82 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
       </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-soft">
-        <ul className="divide-y divide-wedding-blush">
-          {media.map((item) => (
-            <li key={item.key} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={selected.has(item.key)}
-                  onChange={() => toggleOne(item.key)}
-                  aria-label={`${item.uploaderName} dosyasını seç`}
-                  className="h-4 w-4 shrink-0 accent-wedding-rose"
-                />
+        {groups.map((group) => (
+          <div key={group.name} className="border-b border-wedding-blush last:border-b-0">
+            <div className="flex items-center gap-3 bg-wedding-blush/40 px-4 py-3">
+              <input
+                type="checkbox"
+                checked={group.items.every((item) => selected.has(item.key))}
+                onChange={() => toggleGroup(group)}
+                aria-label={`${group.name} klasörünü seç`}
+                className="h-4 w-4 shrink-0 accent-wedding-rose"
+              />
+              <svg className="h-5 w-5 shrink-0 text-wedding-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+              <p className="min-w-0 truncate text-sm font-semibold text-wedding-charcoal">
+                {group.name}
+              </p>
+              <p className="ml-auto shrink-0 text-xs text-wedding-muted">
+                {group.items.length} dosya · {formatFileSize(group.items.reduce((sum, item) => sum + item.size, 0))}
+              </p>
+            </div>
 
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-wedding-blush">
-                  {item.type === 'video' ? (
-                    <svg className="h-6 w-6 text-wedding-rose" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  ) : (
-                    <svg className="h-6 w-6 text-wedding-rose" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  )}
-                </div>
+            <ul className="divide-y divide-wedding-blush/60">
+              {group.items.map((item) => (
+                <li key={item.key} className="flex flex-col gap-3 py-3 pl-8 pr-4 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(item.key)}
+                      onChange={() => toggleOne(item.key)}
+                      aria-label={`${item.uploaderName} dosyasını seç`}
+                      className="h-4 w-4 shrink-0 accent-wedding-rose"
+                    />
 
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-wedding-charcoal">
-                    {item.uploaderName}
-                  </p>
-                  <p className="text-xs text-wedding-muted">
-                    {formatFileSize(item.size)} · {formatDate(item.lastModified)}
-                  </p>
-                </div>
-              </div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-wedding-blush">
+                      {item.type === 'video' ? (
+                        <svg className="h-5 w-5 text-wedding-rose" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      ) : (
+                        <svg className="h-5 w-5 text-wedding-rose" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                    </div>
 
-              <div className="flex shrink-0 gap-2 sm:ml-4">
-                <button
-                  type="button"
-                  onClick={() => handleDownload(item)}
-                  disabled={downloading === item.key}
-                  className="btn-secondary px-4 py-2 text-xs"
-                >
-                  {downloading === item.key ? '…' : 'İndir'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(item)}
-                  disabled={deleting === item.key}
-                  className="rounded-full border border-red-200 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-red-400 transition hover:bg-red-50 disabled:opacity-50"
-                >
-                  {deleting === item.key ? '…' : 'Sil'}
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-wedding-charcoal">
+                        {item.type === 'video' ? 'Video' : 'Fotoğraf'} · {formatFileSize(item.size)}
+                      </p>
+                      <p className="text-xs text-wedding-muted">{formatDate(item.lastModified)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 gap-2 sm:ml-4">
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(item)}
+                      disabled={downloading === item.key}
+                      className="btn-secondary px-4 py-2 text-xs"
+                    >
+                      {downloading === item.key ? '…' : 'İndir'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item)}
+                      disabled={deleting === item.key}
+                      className="rounded-full border border-red-200 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-red-400 transition hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {deleting === item.key ? '…' : 'Sil'}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
 
       <div className="mt-4 text-center">
