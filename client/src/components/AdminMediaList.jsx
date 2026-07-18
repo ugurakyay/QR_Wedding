@@ -133,9 +133,19 @@ export default function AdminMediaList({ media, onRefresh, onMediaChange }) {
       const urls = await Promise.all(items.map((item) => getFreshDownloadUrl(item.key)));
       const entries = items.map((item, i) => ({ url: urls[i], name: names[i] }));
 
+      // Zip adı: tek kişi seçiliyse o kişinin adı, herkes seçiliyse
+      // "tum-yuklemeler", karışık seçimde genel ad
+      const uniqueUploaders = [...new Set(items.map((item) => item.uploaderName))];
+      const zipName =
+        uniqueUploaders.length === 1
+          ? `${uniqueUploaders[0].replace(/\s+/g, '_')}.zip`
+          : items.length === media.length
+          ? 'tum-yuklemeler.zip'
+          : `secilen-dosyalar-${items.length}.zip`;
+
       const blob = await createZipBlob(entries, (index, total) => setBulkDownloading({ index, total }));
       const url = URL.createObjectURL(blob);
-      triggerDownload(url, `secilen-dosyalar-${items.length}.zip`);
+      triggerDownload(url, zipName);
       URL.revokeObjectURL(url);
     } catch (err) {
       setError(getErrorMessage(err, 'Dosyalar zip olarak indirilemedi'));
