@@ -1,9 +1,15 @@
 # Yapılacaklar
 
-Düğün: **8 Ağustos 2026** · Site: https://testmatestudio.online
+Düğün: **8 Ağustos 2026** · Site: https://gokce-ugur.com (yedek: testmatestudio-production.up.railway.app)
 
-## Düğünden ÖNCE (istersen)
+## Düğünden ÖNCE
 
+- [ ] **gokce-ugur.com DNS kurulumu** (testmatestudio.online Railway'den silindi, yenisi eklendi):
+  1. Cloudflare → Add a site → gokce-ugur.com (Free) → verilen 2 nameserver'ı not al
+  2. Natro → gokce-ugur.com → isim sunucularını Cloudflare'inkilerle değiştir
+  3. Cloudflare DNS'e (proxy KAPALI/gri bulut): CNAME `@` → `2fqwl6d2.up.railway.app` ve
+     TXT `_railway-verify` → `railway-verify=d08aa1276f68175528e1042fd2ca5a720f532762af0191b2417dcf2b15cf57f8`
+- [ ] DNS doğrulanınca QR kodu https://gokce-ugur.com adresiyle üret (Claude yapacak)
 - [ ] QR kodu bastırmadan önce siteyi telefondan son bir kez test et (yükleme + galeri)
 - [ ] Admin şifresiyle bir kez giriş yapıp panelin çalıştığını doğrula
 
